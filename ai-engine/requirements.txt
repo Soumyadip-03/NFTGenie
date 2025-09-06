@@ -1,6 +1,51 @@
 # AI Engine Dependencies
-# Currently using only built-in Python libraries
-# Add future dependencies here, for example:
-# numpy>=1.21.0
-# pandas>=1.3.0
-# scikit-learn>=1.0.0
+
+# Core Data Science Libraries
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Machine Learning
+scikit-learn>=1.3.0
+xgboost>=1.7.0
+lightgbm>=4.0.0
+
+# Deep Learning (optional, for advanced features)
+# Uncomment if using neural networks
+# tensorflow>=2.13.0
+# torch>=2.0.0
+# transformers>=4.30.0
+
+# API Framework
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+
+# Database
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
+redis>=4.6.0
+
+# Utilities
+python-dotenv>=1.0.0
+python-jose[cryptography]>=3.3.0
+passlib>=1.7.4
+python-multipart>=0.0.6
+
+# Data Processing
+pillow>=10.0.0  # For image processing
+hashlib  # Built-in, for hashing
+
+# Monitoring and Logging
+prometheus-client>=0.17.0
+loguru>=0.7.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Development
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.4.0

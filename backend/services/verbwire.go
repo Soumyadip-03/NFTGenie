@@ -66,13 +66,18 @@ func (v *VerbwireService) QuickMintNFT(req MintNFTRequest) (*MintNFTResponse, er
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	
+	// Create metadata object
+	metadata := map[string]interface{}{
+		"name":        req.Name,
+		"description": req.Description,
+		"image":       req.ImageURL,
+	}
+	metadataJSON, _ := json.Marshal(metadata)
+	
 	// Add form fields
 	writer.WriteField("chain", v.Chain)
-	writer.WriteField("name", req.Name)
-	writer.WriteField("description", req.Description)
-	writer.WriteField("imageUrl", req.ImageURL)
+	writer.WriteField("data", string(metadataJSON))
 	writer.WriteField("recipientAddress", req.RecipientAddress)
-	writer.WriteField("allowPlatformToOperateToken", "true")
 	
 	err := writer.Close()
 	if err != nil {

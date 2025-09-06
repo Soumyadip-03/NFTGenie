@@ -6,7 +6,11 @@ import (
 	"time"
 
 	"gofr.dev/pkg/gofr"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"nftgenie/backend/database"
+	"nftgenie/backend/models"
+	"nftgenie/backend/repository"
 	"nftgenie/backend/services"
 )
 
@@ -48,6 +52,17 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("No .env file found, using system environment variables")
+	}
+
+	// Initialize database
+	if err := database.Initialize(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer database.Close()
+
+	// Run migrations
+	if err := database.Migrate(); err != nil {
+		log.Printf("Warning: Migration failed (tables may already exist): %v", err)
 	}
 
 	// Initialize GoFr application
@@ -92,50 +107,73 @@ func main() {
 
 // NFT Handlers
 func getAllNFTs(ctx *gofr.Context) (interface{}, error) {
-	// TODO: Implement database query
-	mockNFTs := []NFT{
-		{
-			ID:          "1",
-			Name:        "Genesis NFT #1",
-			Description: "The first NFT in our collection",
-			ImageURL:    "https://ipfs.io/ipfs/sample1",
-			Creator:     "0x123...",
-			Owner:       "0x456...",
-			Price:       "0.1",
-Chain:       "polygonAmoy",
-			CreatedAt:   time.Now(),
-		},
+	nftRepo := repository.NewNFTRepository()
+	
+	// Get pagination params
+	limit := 20
+	offset := 0
+	if l := ctx.Param("limit"); l != "" {
+		fmt.Sscanf(l, "%d", &limit)
 	}
-	return mockNFTs, nil
+	if o := ctx.Param("offset"); o != "" {
+		fmt.Sscanf(o, "%d", &offset)
+	}
+	
+	nfts, total, err := nftRepo.GetAll(limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	
+	return map[string]interface{}{
+		"nfts":  nfts,
+		"total": total,
+		"limit": limit,
+		"offset": offset,
+	}, nil
 }
 
 func getNFTByID(ctx *gofr.Context) (interface{}, error) {
-	id := ctx.PathParam("id")
-	// TODO: Implement database query
-	return NFT{
-		ID:          id,
-		Name:        fmt.Sprintf("NFT #%s", id),
-		Description: "A unique digital asset",
-		ImageURL:    "https://ipfs.io/ipfs/sample",
-		Creator:     "0x123...",
-		Owner:       "0x456...",
-		Price:       "0.1",
-		Chain:       "polygonAmoy",
-		CreatedAt:   time.Now(),
-	}, nil
+	idStr := ctx.PathParam("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid NFT ID")
+	}
+	
+	nftRepo := repository.NewNFTRepository()
+	nft, err := nftRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	
+	return nft, nil
 }
 
 func mintNFT(ctx *gofr.Context) (interface{}, error) {
 	var mintRequest struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		ImageURL    string `json:"image_url"`
-		Creator     string `json:"creator"`
-		Chain       string `json:"chain"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		ImageURL    string   `json:"image_url"`
+		Creator     string   `json:"creator"`
+		Chain       string   `json:"chain"`
+		Tags        []string `json:"tags"`
 	}
 
 	if err := ctx.Bind(&mintRequest); err != nil {
 		return nil, err
+	}
+
+	// Get or create user
+	userRepo := repository.NewUserRepository()
+	user, err := userRepo.GetByWalletAddress(mintRequest.Creator)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		// Create new user
+		user = models.NewUser(mintRequest.Creator)
+		if err := userRepo.Create(user); err != nil {
+			return nil, err
+		}
 	}
 
 	// Initialize Verbwire service
@@ -161,9 +199,28 @@ func mintNFT(ctx *gofr.Context) (interface{}, error) {
 		}, nil
 	}
 
+	// Save NFT to database
+	nft := models.NewNFT(mintRequest.Name, mintRequest.ImageURL, user.ID, user.ID)
+	nft.Description = &mintRequest.Description
+	nft.ContractAddress = &res.ContractAddress
+	nft.TokenID = &res.TokenID
+	nft.TransactionHash = &res.TransactionHash
+	nft.Chain = vw.Chain
+	now := time.Now()
+	nft.MintedAt = &now
+	if len(mintRequest.Tags) > 0 {
+		nft.Tags = mintRequest.Tags
+	}
+
+	nftRepo := repository.NewNFTRepository()
+	if err := nftRepo.Create(nft); err != nil {
+		ctx.Logger.Errorf("failed to save NFT: %v", err)
+	}
+
 	return map[string]interface{}{
 		"success":           true,
 		"message":           "NFT minted successfully",
+		"nft_id":            nft.ID,
 		"transaction_hash":  res.TransactionHash,
 		"contract_address":  res.ContractAddress,
 		"token_id":          res.TokenID,
@@ -174,15 +231,22 @@ func mintNFT(ctx *gofr.Context) (interface{}, error) {
 
 func getUserNFTs(ctx *gofr.Context) (interface{}, error) {
 	address := ctx.PathParam("address")
-	// TODO: Query NFTs owned by this address
-	return []NFT{
-		{
-			ID:    "user_nft_1",
-			Name:  "User's NFT",
-			Owner: address,
-Chain: "polygonAmoy",
-		},
-	}, nil
+	
+	// Get user by wallet address
+	userRepo := repository.NewUserRepository()
+	user, err := userRepo.GetByWalletAddress(address)
+	if err != nil || user == nil {
+		return []models.NFT{}, nil // Return empty array if user not found
+	}
+	
+	// Get NFTs owned by user
+	nftRepo := repository.NewNFTRepository()
+	nfts, err := nftRepo.GetByOwner(user.ID)
+	if err != nil {
+		return nil, err
+	}
+	
+	return nfts, nil
 }
 
 // User Handlers
@@ -197,27 +261,53 @@ func connectWallet(ctx *gofr.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	// TODO: Verify signature and create/update user
+	// Get or create user
+	userRepo := repository.NewUserRepository()
+	user, err := userRepo.GetByWalletAddress(walletRequest.Address)
+	if err != nil && err.Error() != "user not found" {
+		return nil, err
+	}
+	
+	if user == nil {
+		// Create new user
+		user = models.NewUser(walletRequest.Address)
+		if err := userRepo.CreateOrUpdate(user); err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO: Implement actual signature verification
+	// For now, we'll accept any connection
+	
 	return map[string]interface{}{
 		"success": true,
-		"user": User{
-			ID:            "user_123",
-			WalletAddress: walletRequest.Address,
-			CreatedAt:     time.Now(),
-		},
-		"token": "jwt_token_here",
+		"user":    user,
+		"token":   "jwt_token_here", // TODO: Implement JWT generation
 	}, nil
 }
 
 func getUserProfile(ctx *gofr.Context) (interface{}, error) {
 	address := ctx.PathParam("address")
-	// TODO: Get user from database
-	return User{
-		ID:            "user_123",
-		WalletAddress: address,
-		Username:      "CryptoCollector",
-		Bio:           "NFT enthusiast",
-		CreatedAt:     time.Now(),
+	
+	userRepo := repository.NewUserRepository()
+	user, err := userRepo.GetByWalletAddress(address)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	
+	// Get user stats
+	stats, err := userRepo.GetUserStats(user.ID)
+	if err != nil {
+		ctx.Logger.Errorf("failed to get user stats: %v", err)
+		stats = make(map[string]interface{})
+	}
+	
+	return map[string]interface{}{
+		"user":  user,
+		"stats": stats,
 	}, nil
 }
 
@@ -227,41 +317,103 @@ func updateUserProfile(ctx *gofr.Context) (interface{}, error) {
 		Username     string `json:"username"`
 		Bio          string `json:"bio"`
 		ProfileImage string `json:"profile_image"`
+		Email        string `json:"email"`
 	}
 
 	if err := ctx.Bind(&updateRequest); err != nil {
 		return nil, err
 	}
 
-	// TODO: Update user in database
+	userRepo := repository.NewUserRepository()
+	user, err := userRepo.GetByWalletAddress(address)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Check username availability
+	if updateRequest.Username != "" && (user.Username == nil || *user.Username != updateRequest.Username) {
+		exists, err := userRepo.UsernameExists(updateRequest.Username)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, fmt.Errorf("username already taken")
+		}
+		user.Username = &updateRequest.Username
+	}
+
+	if updateRequest.Bio != "" {
+		user.Bio = &updateRequest.Bio
+	}
+	if updateRequest.ProfileImage != "" {
+		user.ProfileImage = &updateRequest.ProfileImage
+	}
+	if updateRequest.Email != "" {
+		user.Email = &updateRequest.Email
+	}
+
+	if err := userRepo.Update(user); err != nil {
+		return nil, err
+	}
+
 	return map[string]interface{}{
 		"success": true,
 		"message": "Profile updated successfully",
-		"address": address,
+		"user":    user,
 	}, nil
 }
 
 // AI Recommendation Handlers
 func getRecommendations(ctx *gofr.Context) (interface{}, error) {
-	userId := ctx.PathParam("userId")
-	
-	// TODO: Implement actual AI recommendation logic
-	mockRecommendations := []Recommendation{
-		{
-			NFTID:  "nft_rec_1",
-			UserID: userId,
-			Score:  0.95,
-			Reason: "Based on your interest in digital art",
-		},
-		{
-			NFTID:  "nft_rec_2",
-			UserID: userId,
-			Score:  0.87,
-			Reason: "Similar to NFTs you've viewed",
-		},
+	userIdStr := ctx.PathParam("userId")
+	userID, err := uuid.Parse(userIdStr)
+	if err != nil {
+		// Try to get by wallet address
+		userRepo := repository.NewUserRepository()
+		user, err := userRepo.GetByWalletAddress(userIdStr)
+		if err != nil || user == nil {
+			return nil, fmt.Errorf("user not found")
+		}
+		userID = user.ID
 	}
 	
-	return mockRecommendations, nil
+	// Get recommended NFTs
+	nftRepo := repository.NewNFTRepository()
+	nfts, err := nftRepo.GetRecommendedForUser(userID, 10)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Format as recommendations
+	recommendations := make([]map[string]interface{}, len(nfts))
+	for i, nft := range nfts {
+		recommendations[i] = map[string]interface{}{
+			"nft":    nft,
+			"score":  0.85 + float64(10-i)*0.015, // Simulated score
+			"reason": generateRecommendationReason(i),
+		}
+	}
+	
+	return recommendations, nil
+}
+
+func generateRecommendationReason(index int) string {
+	reasons := []string{
+		"Based on your interest in digital art",
+		"Similar to NFTs you've viewed",
+		"From creators you follow",
+		"Trending in your favorite categories",
+		"Matches your collection style",
+		"Popular with similar collectors",
+		"New from verified creators",
+		"Rising in value recently",
+		"Limited edition opportunity",
+		"Recommended by the algorithm",
+	}
+	if index < len(reasons) {
+		return reasons[index]
+	}
+	return "Personalized for you"
 }
 
 func trainRecommendationModel(ctx *gofr.Context) (interface{}, error) {
@@ -276,19 +428,46 @@ func trainRecommendationModel(ctx *gofr.Context) (interface{}, error) {
 // Marketplace Handlers
 func listNFTForSale(ctx *gofr.Context) (interface{}, error) {
 	var listingRequest struct {
-		NFTID  string `json:"nft_id"`
-		Price  string `json:"price"`
-		Seller string `json:"seller"`
+		NFTID  string  `json:"nft_id"`
+		Price  float64 `json:"price"`
+		Seller string  `json:"seller"`
 	}
 
 	if err := ctx.Bind(&listingRequest); err != nil {
 		return nil, err
 	}
 
-	// TODO: Create marketplace listing
+	// Parse NFT ID
+	nftID, err := uuid.Parse(listingRequest.NFTID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid NFT ID")
+	}
+
+	// Get seller user
+	userRepo := repository.NewUserRepository()
+	seller, err := userRepo.GetByWalletAddress(listingRequest.Seller)
+	if err != nil || seller == nil {
+		return nil, fmt.Errorf("seller not found")
+	}
+
+	// Verify NFT ownership
+	nftRepo := repository.NewNFTRepository()
+	nft, err := nftRepo.GetByID(nftID)
+	if err != nil {
+		return nil, err
+	}
+	if nft.OwnerID != seller.ID {
+		return nil, fmt.Errorf("you don't own this NFT")
+	}
+
+	// Create listing
+	listing := models.NewMarketplaceListing(nftID, seller.ID, listingRequest.Price)
+	
+	// TODO: Save listing to database when marketplace repository is created
+	
 	return map[string]interface{}{
 		"success":    true,
-		"listing_id": "listing_123",
+		"listing_id": listing.ID,
 		"message":    "NFT listed successfully",
 	}, nil
 }
@@ -327,26 +506,44 @@ func getMarketplaceListings(ctx *gofr.Context) (interface{}, error) {
 
 // Analytics Handlers
 func getTrendingNFTs(ctx *gofr.Context) (interface{}, error) {
-	// TODO: Calculate trending NFTs
-	return []map[string]interface{}{
-		{
-			"nft_id": "trending_1",
-			"name":   "Hot NFT #1",
-			"views":  1500,
-			"sales":  25,
-			"trend_score": 0.92,
-		},
+	nftRepo := repository.NewNFTRepository()
+	trendingNFTs, err := nftRepo.GetTrending(10)
+	if err != nil {
+		return nil, err
+	}
+	
+	return map[string]interface{}{
+		"trending": trendingNFTs,
+		"period":   "7_days",
 	}, nil
 }
 
 func getMarketplaceStats(ctx *gofr.Context) (interface{}, error) {
-	// TODO: Calculate marketplace statistics
-	return map[string]interface{}{
-		"total_nfts":    1000,
-		"total_users":   250,
-		"total_volume":  "1500.5",
-		"active_listings": 75,
-		"24h_volume":    "50.3",
-"chain":         "polygonAmoy",
-	}, nil
+	// Get statistics from database
+	stats := make(map[string]interface{})
+	
+	// Get counts
+	var counts struct {
+		TotalNFTs   int `db:"total_nfts"`
+		TotalUsers  int `db:"total_users"`
+	}
+	
+	query := `
+		SELECT 
+			(SELECT COUNT(*) FROM nfts) as total_nfts,
+			(SELECT COUNT(*) FROM users) as total_users`
+	
+	err := database.DB.Get(&counts, query)
+	if err != nil {
+		ctx.Logger.Errorf("failed to get stats: %v", err)
+	}
+	
+	stats["total_nfts"] = counts.TotalNFTs
+	stats["total_users"] = counts.TotalUsers
+	stats["total_volume"] = "0" // TODO: Calculate from transactions
+	stats["active_listings"] = 0 // TODO: Get from marketplace_listings
+	stats["24h_volume"] = "0"    // TODO: Calculate from recent transactions
+	stats["chain"] = "polygonAmoy"
+	
+	return stats, nil
 }
