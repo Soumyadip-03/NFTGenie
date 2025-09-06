@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
+import Logo from "@/components/Logo";
 
 export default function MintForm() {
   const { address, isConnected } = useAccount();
@@ -47,42 +48,103 @@ export default function MintForm() {
   }
 
   return (
-    <form onSubmit={onMint} className="w-full max-w-xl space-y-4 bg-black/10 rounded-lg p-4">
-      <h2 className="text-xl font-semibold">Quick Mint (Polygon Amoy)</h2>
-      <input
-        className="w-full p-2 rounded bg-black/20 border border-white/10"
-        placeholder="Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-      />
-      <input
-        className="w-full p-2 rounded bg-black/20 border border-white/10"
-        placeholder="Image URL (IPFS or HTTPS)"
-        value={imageUrl}
-        onChange={(e) => setImageUrl(e.target.value)}
-        required
-      />
-      <textarea
-        className="w-full p-2 rounded bg-black/20 border border-white/10"
-        placeholder="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        rows={3}
-      />
-      <button
-        className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-        disabled={loading || !isConnected}
-      >
-        {loading ? "Minting..." : "Mint NFT"}
-      </button>
-      {tx && (
-        <div className="text-green-400">
-          Minted! Tx: <a className="underline" target="_blank" href={`https://amoy.polygonscan.com/tx/${tx}`}>{tx}</a>
+    <div className="glass rounded-2xl p-6 hover-lift">
+      <div className="flex items-center gap-3 mb-6">
+        <Logo size={32} />
+        <div>
+          <h2 className="text-xl font-semibold">Create Your NFT</h2>
+          <p className="text-sm text-slate-400">Mint on Polygon Amoy Testnet</p>
         </div>
-      )}
-      {error && <div className="text-red-400">{error}</div>}
-    </form>
+      </div>
+
+      <form onSubmit={onMint} className="space-y-5">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">NFT Name *</label>
+          <input
+            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all placeholder-slate-500"
+            placeholder="Enter your NFT name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">Image URL *</label>
+          <input
+            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all placeholder-slate-500"
+            placeholder="https://... or ipfs://..."
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            required
+          />
+          <p className="text-xs text-slate-400">Supported: IPFS, HTTPS URLs</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-300">Description</label>
+          <textarea
+            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-amber-500/50 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all placeholder-slate-500 resize-none"
+            placeholder="Describe your NFT..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+          />
+        </div>
+
+        <button
+          className={`w-full p-4 rounded-xl font-semibold transition-all duration-300 ${
+            loading || !isConnected
+              ? 'bg-slate-600 cursor-not-allowed opacity-50'
+              : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 glow-purple hover:glow-cyan'
+          }`}
+          disabled={loading || !isConnected}
+        >
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Minting Your NFT...
+            </div>
+          ) : !isConnected ? (
+            'Connect Wallet to Mint'
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <span>✨</span>
+              Mint NFT
+              <span>✨</span>
+            </div>
+          )}
+        </button>
+
+        {tx && (
+          <div className="glass rounded-xl p-4 border border-green-500/30 bg-green-500/10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-green-400">✓</span>
+              <span className="font-semibold text-green-400">Successfully Minted!</span>
+            </div>
+            <p className="text-sm text-slate-300 mb-3">Your NFT has been created on Polygon Amoy</p>
+            <a 
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm font-medium transition-colors" 
+              target="_blank" 
+              href={`https://amoy.polygonscan.com/tx/${tx}`}
+            >
+              <span>🔗</span>
+              View on Polygonscan
+            </a>
+          </div>
+        )}
+
+        {error && (
+          <div className="glass rounded-xl p-4 border border-red-500/30 bg-red-500/10">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-red-400">⚠</span>
+              <span className="font-semibold text-red-400">Minting Failed</span>
+            </div>
+            <p className="text-sm text-slate-300">{error}</p>
+          </div>
+        )}
+      </form>
+    </div>
   );
 }
 
