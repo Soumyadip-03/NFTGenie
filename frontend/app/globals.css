@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary: #8b5cf6;
-  --color-primary-dark: #7c3aed;
-  --color-secondary: #06b6d4;
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-secondary: #10b981;
   --color-accent: #f59e0b;
-  --color-background: #0f0f23;
-  --color-surface: #1a1a2e;
-  --color-card: rgba(255, 255, 255, 0.05);
-  --color-text: #e2e8f0;
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-card: rgba(255, 255, 255, 0.03);
+  --color-text: #f1f5f9;
   --color-text-muted: #94a3b8;
-  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(255, 255, 255, 0.08);
   --color-success: #10b981;
   --color-error: #ef4444;
   --font-sans: var(--font-geist-sans);
@@ -24,10 +24,10 @@ body {
   transition: all 0.3s ease;
 }
 
-/* Dark theme */
+/* Modern dark theme */
 .dark body {
   @apply text-slate-100;
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
 }
 
 /* Light theme */
@@ -55,9 +55,9 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Gradient text */
+/* Modern gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #8b5cf6, #06b6d4, #f59e0b);
+  background: linear-gradient(135deg, #3b82f6, #10b981);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -70,7 +70,7 @@ body {
 
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
 }
 
 /* Custom scrollbar */
@@ -83,15 +83,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  background: linear-gradient(135deg, #3b82f6, #10b981);
   border-radius: 4px;
 }
 
-/* Glow effects */
-.glow-purple {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+/* Modern glow effects */
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+.glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
 }

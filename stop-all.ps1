@@ -1,91 +1,45 @@
-Write-Host "Stopping NFTGenie Services..." -ForegroundColor Yellow
+Write-Host "Stopping NFTGenie Services..." -ForegroundColor Red
 Write-Host ""
 
-# Stop Frontend (Next.js on port 3000)
-Write-Host "Checking for Frontend on port 3000..." -ForegroundColor Cyan
-$frontend = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($frontend) {
-    $pid = $frontend.OwningProcess
-    Write-Host "  Found process PID: $pid" -ForegroundColor Gray
-    Stop-Process -Id $pid -Force
-    Write-Host "  ✓ Frontend stopped" -ForegroundColor Green
+# Stop Redis
+Write-Host "1. Stopping Redis Server..." -ForegroundColor Yellow
+$redisProcess = Get-Process redis-server -ErrorAction SilentlyContinue
+if ($redisProcess) {
+    Stop-Process -Name redis-server -Force
+    Write-Host "   Redis stopped" -ForegroundColor Green
 } else {
-    Write-Host "  - Frontend not running" -ForegroundColor DarkGray
+    Write-Host "   Redis was not running" -ForegroundColor Gray
 }
 
-# Stop Backend (Go server on port 8000)
-Write-Host "Checking for Backend on port 8000..." -ForegroundColor Cyan
-$backend = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($backend) {
-    $pid = $backend.OwningProcess
-    Write-Host "  Found process PID: $pid" -ForegroundColor Gray
-    Stop-Process -Id $pid -Force
-    Write-Host "  ✓ Backend stopped" -ForegroundColor Green
+# Stop Go backend processes
+Write-Host "2. Stopping Backend Server..." -ForegroundColor Yellow
+$goProcesses = Get-Process go -ErrorAction SilentlyContinue
+if ($goProcesses) {
+    Stop-Process -Name go -Force
+    Write-Host "   Backend stopped" -ForegroundColor Green
 } else {
-    Write-Host "  - Backend not running" -ForegroundColor DarkGray
+    Write-Host "   Backend was not running" -ForegroundColor Gray
 }
 
-# Stop AI Engine (Python on port 5000)
-Write-Host "Checking for AI Engine on port 5000..." -ForegroundColor Cyan
-$aiengine = Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($aiengine) {
-    $pid = $aiengine.OwningProcess
-    Write-Host "  Found process PID: $pid" -ForegroundColor Gray
-    Stop-Process -Id $pid -Force
-    Write-Host "  ✓ AI Engine stopped" -ForegroundColor Green
-} else {
-    Write-Host "  - AI Engine not running" -ForegroundColor DarkGray
-}
-
-# Stop Redis (on port 6379)
-Write-Host "Checking for Redis on port 6379..." -ForegroundColor Cyan
-$redis = Get-NetTCPConnection -LocalPort 6379 -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($redis) {
-    $pid = $redis.OwningProcess
-    Write-Host "  Found process PID: $pid" -ForegroundColor Gray
-    Stop-Process -Id $pid -Force
-    Write-Host "  ✓ Redis stopped" -ForegroundColor Green
-} else {
-    Write-Host "  - Redis not running" -ForegroundColor DarkGray
-}
-
-# Kill any remaining node processes
+# Stop Node.js frontend processes
+Write-Host "3. Stopping Frontend Server..." -ForegroundColor Yellow
 $nodeProcesses = Get-Process node -ErrorAction SilentlyContinue
 if ($nodeProcesses) {
-    Write-Host ""
-    Write-Host "Cleaning up Node.js processes..." -ForegroundColor Yellow
-    $nodeProcesses | ForEach-Object {
-        Stop-Process -Id $_.Id -Force
-        Write-Host "  Stopped Node process PID: $($_.Id)" -ForegroundColor Gray
-    }
+    Stop-Process -Name node -Force
+    Write-Host "   Frontend stopped" -ForegroundColor Green
+} else {
+    Write-Host "   Frontend was not running" -ForegroundColor Gray
 }
 
-# Kill any remaining Go processes
-$goProcesses = Get-Process go, server, nftgenie -ErrorAction SilentlyContinue
-if ($goProcesses) {
-    Write-Host ""
-    Write-Host "Cleaning up Go processes..." -ForegroundColor Yellow
-    $goProcesses | ForEach-Object {
-        Stop-Process -Id $_.Id -Force
-        Write-Host "  Stopped Go process PID: $($_.Id)" -ForegroundColor Gray
-    }
-}
-
-# Kill any remaining Redis processes
-$redisProcesses = Get-Process redis-server -ErrorAction SilentlyContinue
-if ($redisProcesses) {
-    Write-Host ""
-    Write-Host "Cleaning up Redis processes..." -ForegroundColor Yellow
-    $redisProcesses | ForEach-Object {
-        Stop-Process -Id $_.Id -Force
-        Write-Host "  Stopped Redis process PID: $($_.Id)" -ForegroundColor Gray
-    }
+# Stop Python AI engine processes
+Write-Host "4. Stopping AI Engine..." -ForegroundColor Yellow
+$pythonProcesses = Get-Process python -ErrorAction SilentlyContinue
+if ($pythonProcesses) {
+    Stop-Process -Name python -Force
+    Write-Host "   AI Engine stopped" -ForegroundColor Green
+} else {
+    Write-Host "   AI Engine was not running" -ForegroundColor Gray
 }
 
 Write-Host ""
-Write-Host "✅ All NFTGenie services stopped!" -ForegroundColor Green
-Write-Host ""
-Write-Host "To start services again, use:" -ForegroundColor Cyan
-Write-Host "  ./run-backend.ps1   - Start backend"
-Write-Host "  ./run-frontend.ps1  - Start frontend"
-Write-Host "  ./start-all.ps1     - Start all services"
+Write-Host "All NFTGenie services stopped!" -ForegroundColor Green

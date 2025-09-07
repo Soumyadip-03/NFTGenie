@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
 import Logo from "@/components/Logo";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 export default function MintForm() {
   const { address, isConnected } = useAccount();
+  const { addNotification } = useNotifications();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -22,6 +24,13 @@ export default function MintForm() {
     setLoading(true);
     setError(null);
     setTx(null);
+
+    // Add "minting started" notification
+    addNotification({
+      type: 'info',
+      title: 'NFT Minting Started',
+      message: `Creating "${name}" on Polygon Amoy...`
+    });
 
     try {
       const res = await fetch(`/backend/api/nfts/mint`, {
@@ -40,8 +49,22 @@ export default function MintForm() {
         throw new Error(data.message || "Mint failed");
       }
       setTx(data.transaction_hash || "");
+      
+      // Add success notification
+      addNotification({
+        type: 'success',
+        title: 'NFT Minted Successfully! 🎉',
+        message: `"${name}" has been created and is now live on the blockchain.`
+      });
     } catch (err: any) {
       setError(err.message);
+      
+      // Add error notification
+      addNotification({
+        type: 'error',
+        title: 'Minting Failed',
+        message: `Failed to mint "${name}": ${err.message}`
+      });
     } finally {
       setLoading(false);
     }
@@ -61,7 +84,7 @@ export default function MintForm() {
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-300">NFT Name *</label>
           <input
-            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all placeholder-slate-500"
+            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all placeholder-slate-500"
             placeholder="Enter your NFT name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -72,7 +95,7 @@ export default function MintForm() {
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-300">Image URL *</label>
           <input
-            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all placeholder-slate-500"
+            className="w-full p-4 rounded-xl glass border border-white/10 focus:border-green-500/50 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all placeholder-slate-500"
             placeholder="https://... or ipfs://..."
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
@@ -96,7 +119,7 @@ export default function MintForm() {
           className={`w-full p-4 rounded-xl font-semibold transition-all duration-300 ${
             loading || !isConnected
               ? 'bg-slate-600 cursor-not-allowed opacity-50'
-              : 'bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 glow-purple hover:glow-cyan'
+              : 'bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 glow-blue hover:glow-green'
           }`}
           disabled={loading || !isConnected}
         >

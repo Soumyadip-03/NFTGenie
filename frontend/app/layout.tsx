@@ -26,6 +26,7 @@ export const viewport: Viewport = {
 };
 
 import Providers from "./providers";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 export default function RootLayout({
   children,
@@ -37,7 +38,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <NotificationProvider>
+          <Providers>{children}</Providers>
+        </NotificationProvider>
       </body>
     </html>
   );
