@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Explicitly set the root directory for Turbopack
   experimental: {
     turbo: {
       root: "./",
@@ -14,6 +13,15 @@ const nextConfig: NextConfig = {
         destination: "http://localhost:8000/:path*",
       },
     ];
+  },
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      net: false,
+      tls: false,
+      fs: false,
+    };
+    return config;
   },
 };
 

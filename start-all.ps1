@@ -27,8 +27,13 @@ $redisPath = "$PWD\backend\redis\redis-server.exe"
 if (Test-Path $redisPath) {
     Write-Host "  OK - Redis found" -ForegroundColor Green
 } else {
-    Write-Host "  ERROR - Redis not found. Please run the backend setup first." -ForegroundColor Red
-    exit 1
+    Write-Host "  Redis not found. Setting up Redis..." -ForegroundColor Yellow
+    & "$PWD\setup-redis.ps1"
+    if (!(Test-Path $redisPath)) {
+        Write-Host "  ERROR - Redis setup failed." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "  OK - Redis installed successfully" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -37,9 +42,29 @@ Write-Host ""
 
 # Start Redis
 Write-Host "1. Starting Redis Server..." -ForegroundColor Yellow
-# Start Redis in background (no window needed)
-& "$PWD\backend\start-redis-background.ps1"
-Start-Sleep -Seconds 2
+# Check if Redis is already running
+$redisRunning = Get-Process redis-server -ErrorAction SilentlyContinue
+if ($redisRunning) {
+    Write-Host "   Redis is already running" -ForegroundColor Green
+} else {
+    # Start Redis server with better error handling
+    $redisPath = "$PWD\backend\redis\redis-server.exe"
+    $redisConfig = "$PWD\backend\redis\redis.windows.conf"
+    try {
+        Start-Process -FilePath $redisPath -ArgumentList $redisConfig -WindowStyle Hidden -PassThru
+        Start-Sleep -Seconds 5
+        # Test Redis connection
+        $testConnection = Test-NetConnection -ComputerName localhost -Port 6379 -WarningAction SilentlyContinue
+        if ($testConnection.TcpTestSucceeded) {
+            Write-Host "   Redis started successfully" -ForegroundColor Green
+        } else {
+            Write-Host "   Warning: Redis may not be responding on port 6379" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "   Error starting Redis: $_" -ForegroundColor Red
+        Write-Host "   Continuing without Redis..." -ForegroundColor Yellow
+    }
+}
 
 # Start Backend
 Write-Host "2. Starting Backend Server..." -ForegroundColor Yellow
